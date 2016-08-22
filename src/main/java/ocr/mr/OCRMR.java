@@ -43,7 +43,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 public class OCRMR extends Configured implements Tool {
-	public static class Map extends Mapper<NullWritable, BytesWritable, Text, Text> {
+	public static class Map extends Mapper<Text, BytesWritable, Text, Text> {
 
 		private Text word = new Text();
 		// TODO: Wrap FullFileInputFormat in CombineFileInputFormat
@@ -58,12 +58,10 @@ public class OCRMR extends Configured implements Tool {
 			File tessdata = new File("tessdata.tar.gz/tessdata");
 			File tesslib = new File("libtesseract.so");
 			File leptlib = new File("liblept.so.4");
-			File webplib = new File("libwebp.so.5");
                         File giflib = new File("libgif.so.4");
 			try {
 				System.load(leptlib.getCanonicalPath());
 				System.load(tesslib.getCanonicalPath());
-                                System.load(webplib.getCanonicalPath());
                                 System.load(giflib.getCanonicalPath());
 
 				instance = Tesseract.getInstance();
@@ -73,13 +71,13 @@ public class OCRMR extends Configured implements Tool {
 				System.out.println("Failed to obtain Tessdata library or folder");
 			}
 
-			InputSplit split = context.getInputSplit();
-			Path path = ((FileSplit) split).getPath();
-			filepath = new Text(path.toString());
-			filename = new Text(path.getName());
+//			InputSplit split = context.getInputSplit();
+//			Path path = ((FileSplit) split).getPath();
+//			filepath = new Text(path.toString());
+//			filename = new Text(path.getName());
 		}
 
-		public void map(NullWritable key, BytesWritable data, Context context)
+		public void map(Text key, BytesWritable data, Context context)
 				throws IOException, InterruptedException {
 
 			InputStream is = new ByteArrayInputStream(data.getBytes());
@@ -93,7 +91,7 @@ public class OCRMR extends Configured implements Tool {
 			}
 			if (!result.isEmpty()) {
 				word.set(result);
-				context.write(filename, word);
+				context.write(key, word);
 			}
 		}
 	}
@@ -120,7 +118,7 @@ public class OCRMR extends Configured implements Tool {
 		job.setCombinerClass(Reduce.class);
 		job.setReducerClass(Reduce.class);
 
-		job.setInputFormatClass(FullFileInputFormat.class);
+		job.setInputFormatClass(BinaryFileInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
 
 		FileInputFormat.setInputPaths(job, new Path(args[0]));
@@ -129,7 +127,6 @@ public class OCRMR extends Configured implements Tool {
 		job.addCacheArchive(new URI("/tmp/tessdata.tar.gz"));
 		job.addCacheFile(new URI("/tmp/libtesseract.so"));
 		job.addCacheFile(new URI("/tmp/liblept.so.4"));
-                job.addCacheFile(new URI("/tmp/libwebp.so.5"));
                 job.addCacheFile(new URI("/tmp/libgif.so.4"));
 
 		return job.waitForCompletion(true) ? 0 : 1;
