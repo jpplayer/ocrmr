@@ -10,10 +10,15 @@ else
   PREFIX=/usr/lib64
 fi
 
-hdfs dfs -put -f $PREFIX/libtesseract.so.3 /tmp/libtesseract.so
-hdfs dfs -put -f $PREFIX/liblept.so.4 /tmp/
-hdfs dfs -put -f $PREFIX/libwebp.so.5 /tmp/
-hdfs dfs -put -f $PREFIX/libgif.so.4 /tmp/
+cd /tmp
+mkdir -p tesslib
+cp $PREFIX/libtesseract.so.3 tesslib/libtesseract.so
+cp $PREFIX/liblept.so.4 tesslib/
+cp $PREFIX/libwebp.so.5 tesslib/
+cp $PREFIX/libgif.so.4 tesslib/
+cd tesslib
+tar cfz ../tesslib.tar.gz *
+hdfs dfs -put -f ../tesslib.tar.gz /tmp
 
 #yum -y erase leptonica tesseract
 cd "$BAK"

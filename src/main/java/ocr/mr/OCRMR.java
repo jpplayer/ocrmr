@@ -46,91 +46,81 @@ public class OCRMR extends Configured implements Tool {
 	public static class Map extends Mapper<Text, BytesWritable, Text, Text> {
 
 		private Text word = new Text();
-		// TODO: Wrap FullFileInputFormat in CombineFileInputFormat
 		private Text filepath;
 		private Text filename;
 
 		Tesseract instance = null;
 
 		@Override
-		protected void setup(Context context) throws IOException, InterruptedException {
+			protected void setup(Context context) throws IOException, InterruptedException {
 
-			File tessdata = new File("tessdata.tar.gz/tessdata");
-			File tesslib = new File("libtesseract.so");
-			File leptlib = new File("liblept.so.4");
-                        File giflib = new File("libgif.so.4");
-			try {
-				System.load(leptlib.getCanonicalPath());
-				System.load(tesslib.getCanonicalPath());
-                                System.load(giflib.getCanonicalPath());
+				File tessdata = new File("tessdata.tar.gz/tessdata");
+				File nativelibs = new File("tesslib.tar.gz");
+				try {
+					for( File lib : nativelibs.listFiles() ) {
+						System.load(lib.getCanonicalPath());
+					}
 
-				instance = Tesseract.getInstance();
-				instance.setDatapath(tessdata.getCanonicalPath());
-				instance.setTessVariable("LC_NUMERIC", "C");
-			} catch (IOException e) {
-				System.out.println("Failed to obtain Tessdata library or folder");
+					instance = Tesseract.getInstance();
+					instance.setDatapath(tessdata.getCanonicalPath());
+					instance.setTessVariable("LC_NUMERIC", "C");
+				} catch (IOException e) {
+					System.out.println("Failed to obtain Tessdata library or folder");
+				}
+
 			}
-
-//			InputSplit split = context.getInputSplit();
-//			Path path = ((FileSplit) split).getPath();
-//			filepath = new Text(path.toString());
-//			filename = new Text(path.getName());
-		}
 
 		public void map(Text key, BytesWritable data, Context context)
-				throws IOException, InterruptedException {
+			throws IOException, InterruptedException {
 
-			InputStream is = new ByteArrayInputStream(data.getBytes());
-			BufferedImage image = ImageIO.read(IOUtils.toBufferedInputStream(is));
+				InputStream is = new ByteArrayInputStream(data.getBytes());
+				BufferedImage image = ImageIO.read(IOUtils.toBufferedInputStream(is));
 
-			String result = null;
-			try {
-				result = instance.doOCR(image);
-			} catch (TesseractException e) {
-				e.printStackTrace();
+				String result = null;
+				try {
+					result = instance.doOCR(image);
+				} catch (TesseractException e) {
+					e.printStackTrace();
+				}
+				if (!result.isEmpty()) {
+					word.set(result);
+					context.write(key, word);
+				}
 			}
-			if (!result.isEmpty()) {
-				word.set(result);
-				context.write(key, word);
-			}
-		}
 	}
 
 	public static class Reduce extends Reducer<Text, Text, Text, Text> {
 
 		public void reduce(Text filename, Text ocrText, Context context)
-				throws IOException, InterruptedException {
-			context.write(filename, new Text(ocrText));
-		}
+			throws IOException, InterruptedException {
+				context.write(filename, new Text(ocrText));
+			}
 	}
 
 	@Override
-	public int run(String[] args) throws Exception {
-		Configuration conf = new Configuration();
-		Job job = Job.getInstance(conf);
-		job.setJarByClass(OCRMR.class);
-		job.setJobName("OCR");
+		public int run(String[] args) throws Exception {
+			Job job = Job.getInstance(getConf());
+			job.setJarByClass(OCRMR.class);
+			job.setJobName("OCR");
 
-		job.setOutputKeyClass(Text.class);
-		job.setOutputValueClass(Text.class);
+			job.setOutputKeyClass(Text.class);
+			job.setOutputValueClass(Text.class);
 
-		job.setMapperClass(Map.class);
-		job.setCombinerClass(Reduce.class);
-		job.setReducerClass(Reduce.class);
+			job.setMapperClass(Map.class);
+			job.setCombinerClass(Reduce.class);
+			job.setReducerClass(Reduce.class);
 
-		job.setInputFormatClass(BinaryFileInputFormat.class);
-		job.setOutputFormatClass(TextOutputFormat.class);
+			job.setInputFormatClass(BinaryFileInputFormat.class);
+			job.setOutputFormatClass(TextOutputFormat.class);
 
-		FileInputFormat.setInputPaths(job, new Path(args[0]));
-		FileOutputFormat.setOutputPath(job, new Path(args[1]));
+			FileInputFormat.setInputPaths(job, new Path(args[0]));
+			FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
-		job.addCacheArchive(new URI("/tmp/tessdata.tar.gz"));
-		job.addCacheFile(new URI("/tmp/libtesseract.so"));
-		job.addCacheFile(new URI("/tmp/liblept.so.4"));
-                job.addCacheFile(new URI("/tmp/libgif.so.4"));
+			job.addCacheArchive(new URI("/tmp/tessdata.tar.gz"));
+			job.addArchiveToClassPath(new org.apache.hadoop.fs.Path(new URI("/tmp/tesslib.tar.gz")));
 
-		return job.waitForCompletion(true) ? 0 : 1;
-	}
+			return job.waitForCompletion(true) ? 0 : 1;
+		}
 
 	public static void main(String[] args) throws Exception {
 		int exitCode = ToolRunner.run(new Configuration(), new OCRMR(), args);
