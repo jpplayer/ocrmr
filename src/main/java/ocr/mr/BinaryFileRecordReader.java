@@ -16,8 +16,6 @@ import org.apache.hadoop.mapreduce.lib.input.CombineFileSplit;
 
 class BinaryFileRecordReader extends RecordReader<Text, BytesWritable> {
 	private CombineFileSplit split;
-	//private Configuration conf;
-	//private BytesWritable value = new BytesWritable();
 	private FileSystem fs;
 	private Text key;
 	private BytesWritable value;
@@ -54,57 +52,23 @@ class BinaryFileRecordReader extends RecordReader<Text, BytesWritable> {
 		try
 		{
 			path = this.paths[count];
-		} catch (Exception e)
-		{
+		} catch (Exception e) {
 			return false;
 		}
 
 		currentStream = null;
 		try {
-		currentStream = fs.open(path);
-		key.set(path.getName());
-		int length = (int) fs.getFileStatus(path).getLen();
-		byte[] contents = new byte[ length ];
-		        //Path file = fileSplit.getPath();
-                        //FileSystem fs = file.getFileSystem(conf);
-                        //FSDataInputStream in = null;
-                        
-                                //in = fs.open(file);
-                                IOUtils.readFully(currentStream, contents, 0, length);
-                                value.set(contents, 0, length);
-                        } finally {
-//                                IOUtils.closeStream(in);
+			currentStream = fs.open(path);
+			key.set(path.getName());
+			int length = (int) fs.getFileStatus(path).getLen();
+			byte[] contents = new byte[ length ];
+                        IOUtils.readFully(currentStream, contents, 0, length);
+                        value.set(contents, 0, length);
+                } finally {
  				currentStream.close();
-                       }
-//
-		//value.set(tikaHelper.readPath(currentStream));
-//
-		//currentStream.close();
+                }
 		count++;
-
 		return true; // we have more data to parse
-
-
-
-/*
-
-		if (!processed) {
-			byte[] contents = new byte[(int) fileSplit.getLength()];
-			Path file = fileSplit.getPath();
-			FileSystem fs = file.getFileSystem(conf);
-			FSDataInputStream in = null;
-			try {
-				in = fs.open(file);
-				IOUtils.readFully(in, contents, 0, contents.length);
-				value.set(contents, 0, contents.length);
-			} finally {
-				IOUtils.closeStream(in);
-			}
-			processed = true;
-			return true;
-		}
-		return false;
-*/
 	}
 
 	@Override
